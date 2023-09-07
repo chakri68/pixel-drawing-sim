@@ -1,1 +1,54 @@
+@import "./_mixins.scss";
 
+main {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+}
+
+.main-area {
+  $sp: 1rem;
+  $min-col-width: 35rem;
+
+  height: 100%;
+  width: 100%;
+
+  display: grid;
+  grid-template-columns: auto 1fr;
+
+  gap: $sp;
+  padding: $sp;
+
+  > * {
+    @include scroll-margin(2rem);
+    overflow: auto;
+  }
+
+  #code-area {
+    min-width: $min-col-width;
+    max-width: calc(100vw - #{$min-col-width});
+    height: 100%;
+
+    background-color: red;
+    resize: horizontal;
+    overflow: scroll;
+    background-color: rgba(173, 255, 47, 0.5);
+  }
+
+  #canvas-wrapper {
+    $p: 0.5rem;
+
+    position: relative;
+    height: 100%;
+
+    background-color: rgba(128, 0, 128, 0.5);
+    padding: $p;
+    #canvas {
+      position: absolute;
+      top: $p;
+      left: $p;
+      width: calc(100% - #{$p * 2});
+      height: calc(100% - #{$p * 2});
+    }
+  }
+}

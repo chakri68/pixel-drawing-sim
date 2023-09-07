@@ -1,0 +1,13 @@
+@mixin scroll-margin($scrollbar-margin: 2rem) {
+  &::-webkit-scrollbar-track-piece:end {
+    background: transparent;
+    margin-top: $scrollbar-margin;
+    margin-bottom: $scrollbar-margin;
+  }
+
+  &::-webkit-scrollbar-track-piece:start {
+    background: transparent;
+    margin-top: $scrollbar-margin;
+    margin-bottom: $scrollbar-margin;
+  }
+}
