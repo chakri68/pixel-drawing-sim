@@ -6,8 +6,16 @@ module.exports = {
   mode: "none",
   entry: "./src/index.ts",
   output: {
-    path: __dirname + "/dist",
-    filename: "bundle.js",
+    globalObject: "self",
+    filename: "[name].bundle.js",
+    path: path.resolve(__dirname, "dist"),
+  },
+  devServer: {
+    contentBase: "./dist",
+    hot: true,
+  },
+  optimization: {
+    runtimeChunk: "single",
   },
   plugins: [
     new HtmlWebpackPlugin({
