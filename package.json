@@ -3,11 +3,17 @@
   "version": "1.0.0",
   "main": "dist/bundle.js",
   "author": "chakri68",
+  "repository": {
+    "url": "git+https://github.com/chakri68/pixel-drawing-sim.git"
+  },
+  "homepage": "http://chakri68.github.io/pixel-drawing-sim",
   "license": "MIT",
   "private": true,
   "scripts": {
     "build": "webpack",
-    "dev": "webpack-dev-server"
+    "dev": "webpack-dev-server",
+    "predeploy": "yarn build",
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "@babel/core": "^7.22.5",
@@ -15,6 +21,7 @@
     "babel-loader": "^9.1.2",
     "copy-webpack-plugin": "^11.0.0",
     "css-loader": "^6.8.1",
+    "gh-pages": "^6.0.0",
     "html-webpack-plugin": "^5.5.3",
     "node-sass": "^9.0.0",
     "sass-loader": "^13.3.2",
