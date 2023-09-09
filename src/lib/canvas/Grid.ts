@@ -29,7 +29,7 @@ export class CanvasGrid {
   public options: Options;
   private defaultOptions: Pick<Options, optionalOptionKeys> = {
     gap: 0,
-    color: "#fff",
+    color: "#fff", // default color
   };
   private cellData: Cell[][] = [];
   private overlayLines: { startCell: Cell["index"]; endCell: Cell["index"] }[] =
@@ -54,8 +54,7 @@ export class CanvasGrid {
 
     this.updateCellCount();
 
-    this.drawCells();
-    this.addResizeHandler();
+    this.refreshGrid();
   }
 
   private generateCellData(
@@ -219,8 +218,32 @@ export class CanvasGrid {
     }
   }
 
-  private addOverlayLine(startIndex: Cell["index"], endIndex: Cell["index"]) {
+  public addOverlayLine(startIndex: Cell["index"], endIndex: Cell["index"]) {
     this.overlayLines.push({ startCell: startIndex, endCell: endIndex });
+    this.drawOverlayLines();
+  }
+
+  public clearCells() {
+    for (const row of this.cellData) {
+      for (const col of row) {
+        col.color = "#fff"; // default color
+      }
+    }
+  }
+
+  public clearOverlayLines() {
+    this.overlayLines = [];
+  }
+
+  public refreshGrid() {
+    this.ctx.fillStyle = "#fff";
+    this.ctx.fillRect(
+      0,
+      0,
+      this.canvasElement.width,
+      this.canvasElement.height
+    );
+    this.drawCells();
     this.drawOverlayLines();
   }
 }
