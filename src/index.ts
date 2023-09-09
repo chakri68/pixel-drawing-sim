@@ -3,6 +3,7 @@ import { handleResizeDrag } from "./lib/dom";
 import { asyncSleep } from "./lib/utils/animations";
 import "./styles/global.scss";
 import "./styles/sass/styles.scss";
+import NaiveLineDrawing from "./lib/lineDrawing/NaiveLineDrawing";
 
 console.log("index.js connected!");
 
@@ -10,9 +11,8 @@ const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
 const canvasManager = new CanvasGrid(canvas, {
-  size: [9, 9],
+  cellSize: [30, 30],
   gap: 10,
-  canvasPadding: [10, 10],
 });
 
 handleResizeDrag(canvasManager.resizeHandler.bind(canvasManager));
@@ -25,10 +25,7 @@ const fillCell = async (...args) => {
 };
 
 async function startAnimation() {
-  await fillCell([0, 0], "#f00");
-  await fillCell([1, 0], "#f00");
-  await fillCell([2, 0], "#f00");
-  await fillCell([3, 0], "#f00");
+  await canvasManager.drawLine([0, 0], [7, 5], NaiveLineDrawing);
 }
 
 startAnimation();

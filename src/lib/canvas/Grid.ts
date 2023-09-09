@@ -1,8 +1,12 @@
+import { asyncSleep } from "../utils/animations";
 import { Optional } from "../utils/typeUtils";
 
+export type Point = [number, number];
+
+export type LineStrategy = (point1: Point, point2: Point) => Point[];
+
 export interface Options {
-  size: [number, number];
-  canvasPadding: [number, number];
+  cellSize: [number, number];
   gap: number;
   color: string;
 }
@@ -18,17 +22,18 @@ export type Cell = {
   color: string;
 };
 
-type optionalOptionKeys = "canvasPadding" | "gap" | "color";
+type optionalOptionKeys = "gap" | "color";
 
 export class CanvasGrid {
   public ctx: CanvasRenderingContext2D;
   public options: Options;
   private defaultOptions: Pick<Options, optionalOptionKeys> = {
-    canvasPadding: [10, 10],
     gap: 0,
     color: "#fff",
   };
   private cellData: Cell[][] = [];
+  private overlayLines: { startCell: Cell["index"]; endCell: Cell["index"] }[] =
+    [];
 
   constructor(
     public canvasElement: HTMLCanvasElement,
@@ -47,76 +52,57 @@ export class CanvasGrid {
       ),
     } as Options;
 
-    // Generate and update CellData
-    this.cellData = this.generateCellData();
+    this.updateCellCount();
 
     this.drawCells();
     this.addResizeHandler();
   }
 
-  private generateCellData(): Cell[][] {
-    const { canvasPadding, size, color, gap } = this.options;
-    const [cols, rows] = size;
-    const [paddingX, paddingY] = canvasPadding;
+  private generateCellData(
+    rows: number,
+    cols: number,
+    oldData: Cell[][] = []
+  ): Cell[][] {
+    const { color, gap, cellSize } = this.options;
+    const [cellWidth, cellHeight] = cellSize;
 
-    const cellData: Cell[][] = [];
+    const [pX, pY] = this.calculatePadding(rows, cols);
 
-    // Calculate cell width and height, considering the gap
-    const cellWidth =
-      (this.canvasElement.width - 2 * paddingX - (cols - 1) * gap) / cols;
-    const cellHeight =
-      (this.canvasElement.height - 2 * paddingY - (rows - 1) * gap) / rows;
+    const cellData: Cell[][] = oldData
+      .map((data) => data.slice(0, cols))
+      .slice(0, rows);
 
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = 1;
 
     // Draw the grid as cells
     for (let y = 0; y < rows; y++) {
-      cellData[y] = [];
+      if (!cellData[y]) cellData[y] = [];
       for (let x = 0; x < cols; x++) {
-        const startX = x * (cellWidth + gap) + paddingX;
-        const startY = y * (cellHeight + gap) + paddingY;
-        cellData[y][x] = {
-          index: [x, y],
-          rect: {
+        const startX = pX + x * (cellWidth + gap);
+        const startY = pY + y * (cellHeight + gap);
+        if (!cellData[y][x])
+          cellData[y][x] = {
+            index: [x, y],
+            rect: {
+              x: startX,
+              y: startY,
+              width: cellWidth,
+              height: cellHeight,
+            },
+            color: color,
+          };
+        else {
+          cellData[y][x].rect = {
             x: startX,
             y: startY,
             width: cellWidth,
             height: cellHeight,
-          },
-          color: color,
-        };
+          };
+        }
       }
     }
     return cellData;
-  }
-
-  private updateCellRects() {
-    const { canvasPadding, size, color, gap } = this.options;
-    const [cols, rows] = size;
-    const [paddingX, paddingY] = canvasPadding;
-
-    // Calculate cell width and height, considering the gap
-    const cellWidth =
-      (this.canvasElement.width - 2 * paddingX - (cols - 1) * gap) / cols;
-    const cellHeight =
-      (this.canvasElement.height - 2 * paddingY - (rows - 1) * gap) / rows;
-
-    this.ctx.strokeStyle = color;
-    this.ctx.lineWidth = 1;
-
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const startX = x * (cellWidth + gap) + paddingX;
-        const startY = y * (cellHeight + gap) + paddingY;
-        this.cellData[y][x].rect = {
-          x: startX,
-          y: startY,
-          width: cellWidth,
-          height: cellHeight,
-        };
-      }
-    }
   }
 
   private drawCells() {
@@ -160,7 +146,7 @@ export class CanvasGrid {
   private addResizeHandler() {
     window.addEventListener("resize", () => {
       this.updateCanvasSize();
-      this.updateCellRects();
+      this.updateCellCount();
       this.drawCells();
     });
   }
@@ -171,11 +157,36 @@ export class CanvasGrid {
     this.canvasElement.height = boundingBox.height;
   }
 
+  private updateCellCount() {
+    const { gap, cellSize } = this.options;
+
+    const [cellWidth, cellHeight] = cellSize;
+    const newCols = Math.floor(
+      (this.canvasElement.width + gap) / (cellWidth + gap)
+    );
+    const newRows = Math.floor(
+      (this.canvasElement.height + gap) / (cellHeight + gap)
+    );
+    this.cellData = this.generateCellData(newRows, newCols, this.cellData);
+  }
+
+  private calculatePadding(rows: number, cols: number) {
+    const { gap, cellSize } = this.options;
+    const [cellWidth, cellHeight] = cellSize;
+    const paddingX =
+      (this.canvasElement.width - (cols * cellWidth + (cols - 1) * gap)) / 2;
+    const paddingY =
+      (this.canvasElement.height - (rows * cellHeight + (rows - 1) * gap)) / 2;
+
+    return [paddingX, paddingY];
+  }
+
   public resizeHandler([width, height]: [number, number]) {
     this.canvasElement.width = width;
     this.canvasElement.height = height;
-    this.updateCellRects();
+    this.updateCellCount();
     this.drawCells();
+    this.drawOverlayLines();
   }
 
   public fillCell(index: [number, number], color: string) {
@@ -184,5 +195,32 @@ export class CanvasGrid {
     cell.color = color;
     this.ctx.fillStyle = color;
     this.drawCell(index);
+  }
+
+  public async drawLine(point1: Point, point2: Point, strategy: LineStrategy) {
+    this.addOverlayLine(point1, point2);
+    const points = strategy(point1, point2);
+    for (const point of points) {
+      this.fillCell(point, "#f00");
+      this.drawOverlayLines();
+      await asyncSleep(1000);
+    }
+  }
+
+  private drawOverlayLines() {
+    for (const { startCell, endCell } of this.overlayLines) {
+      const sCell = this.cellData[startCell[1]][startCell[0]].rect;
+      const eCell = this.cellData[endCell[1]][endCell[0]].rect;
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = "#000";
+      this.ctx.moveTo(sCell.x + sCell.width / 2, sCell.y + sCell.height / 2);
+      this.ctx.lineTo(eCell.x + eCell.width / 2, eCell.y + eCell.height / 2);
+      this.ctx.stroke();
+    }
+  }
+
+  private addOverlayLine(startIndex: Cell["index"], endIndex: Cell["index"]) {
+    this.overlayLines.push({ startCell: startIndex, endCell: endIndex });
+    this.drawOverlayLines();
   }
 }
