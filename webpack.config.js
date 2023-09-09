@@ -25,7 +25,7 @@ module.exports = {
       title: "Line Drawing Algo Sim",
     }),
     new CopyWebpackPlugin({
-      patterns: [{ from: "./src/public", to: "public" }],
+      patterns: [{ from: "./src/public", to: "assets" }],
     }),
   ],
   devtool: "eval-source-map",
