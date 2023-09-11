@@ -94,7 +94,7 @@ runBtn.addEventListener("click", async () => {
   canvasManager.refreshGrid();
 
   // Overlay line
-  // canvasManager.addOverlayLine(pixels[0], pixels[pixels.length - 1]);
+  canvasManager.addOverlayLine(pixels[0], pixels[pixels.length - 1]);
 
   // Draw the pixels
   for (const pixel of pixels) {
