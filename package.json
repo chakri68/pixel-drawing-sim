@@ -10,7 +10,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "build": "webpack",
+    "build": "webpack --mode=production",
     "dev": "webpack-dev-server",
     "predeploy": "yarn build",
     "deploy": "gh-pages -d dist"
@@ -23,6 +23,7 @@
     "css-loader": "^6.8.1",
     "gh-pages": "^6.0.0",
     "html-webpack-plugin": "^5.5.3",
+    "mini-css-extract-plugin": "^2.7.6",
     "node-sass": "^9.0.0",
     "sass-loader": "^13.3.2",
     "style-loader": "^3.3.3",

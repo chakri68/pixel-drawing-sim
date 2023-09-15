@@ -1,6 +1,7 @@
 const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
 module.exports = {
   mode: "none",
@@ -10,12 +11,16 @@ module.exports = {
     filename: "[name].bundle.js",
     path: path.resolve(__dirname, "dist"),
   },
+  devtool: "eval-source-map",
   devServer: {
     contentBase: "./dist",
     hot: true,
   },
   optimization: {
     runtimeChunk: "single",
+    splitChunks: {
+      chunks: "all",
+    },
   },
   plugins: [
     new HtmlWebpackPlugin({
@@ -26,6 +31,10 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [{ from: "./src/public", to: "assets" }],
+    }),
+    new MiniCssExtractPlugin({
+      filename: "style.css",
+      chunkFilename: "[name].css",
     }),
   ],
   devtool: "eval-source-map",
@@ -44,7 +53,7 @@ module.exports = {
       },
       {
         test: /\.(s(a|c)ss)$/,
-        use: ["style-loader", "css-loader", "sass-loader"],
+        use: [MiniCssExtractPlugin.loader, "css-loader", "sass-loader"],
       },
       {
         test: /\.ts$/,
