@@ -9,6 +9,7 @@ export interface Options {
   cellSize: [number, number];
   gap: number;
   color: string;
+  pixelRadius: number;
 }
 
 export type Cell = {
@@ -22,7 +23,7 @@ export type Cell = {
   color: string;
 };
 
-type optionalOptionKeys = "gap" | "color";
+type optionalOptionKeys = "gap" | "color" | "pixelRadius";
 
 export class CanvasGrid {
   public ctx: CanvasRenderingContext2D;
@@ -30,6 +31,7 @@ export class CanvasGrid {
   private defaultOptions: Pick<Options, optionalOptionKeys> = {
     gap: 0,
     color: "#fff", // default color
+    pixelRadius: 6,
   };
   private cellData: Cell[][] = [];
   private overlayLines: { startCell: Cell["index"]; endCell: Cell["index"] }[] =
@@ -123,7 +125,7 @@ export class CanvasGrid {
     y: number,
     width: number,
     height: number,
-    radii: number = 6
+    radii: number = this.options.pixelRadius
   ) {
     this.ctx.beginPath();
     this.ctx.roundRect(x, y, width, height, radii);
