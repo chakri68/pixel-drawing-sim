@@ -132,11 +132,12 @@ runBtn.addEventListener("click", async () => {
 });
 
 const canvasManager = new CanvasGrid(canvas, {
-  cellSize: [2, 2],
+  cellSize: [1, 1],
   gap: 0,
+  pixelRadius: 0,
 });
 
-handleResizeDrag(canvasManager.resizeHandler.bind(canvasManager));
+handleResizeDrag(canvasManager.updateCanvasSizeAndRedraw.bind(canvasManager));
 
 window.addEventListener("beforeunload", () => {
   const data = cm.state.doc.toString();

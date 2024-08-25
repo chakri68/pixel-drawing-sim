@@ -7,9 +7,9 @@ export function handleResizeDrag(callback?: (size: [number, number]) => void) {
   ) as HTMLDivElement;
   const canvasEl = document.querySelector("#canvas") as HTMLCanvasElement;
 
-  let state = {
-    startX: 0, // changes every time the drag starts
-    dragStartWidth: 0, // changes every time the drag starts
+  const state = {
+    startX: 0,
+    dragStartWidth: 0,
   };
 
   const handleMouseDown = (ev: MouseEvent) => {
@@ -22,19 +22,29 @@ export function handleResizeDrag(callback?: (size: [number, number]) => void) {
   };
 
   const handleMouseMove = (ev: MouseEvent) => {
-    if (resizeDragEl.classList.contains("dragging")) {
-      const dx = ev.clientX - state.startX;
-      codeAreaEl.style.width = `${state.dragStartWidth + dx}px`;
-      canvasEl.width = canvasEl.getBoundingClientRect().width;
-      canvasEl.height = canvasEl.getBoundingClientRect().height;
-      callback && callback([canvasEl.width, canvasEl.height]);
-    }
+    const dx = ev.clientX - state.startX;
+    codeAreaEl.style.width = `${state.dragStartWidth + dx}px`;
+
+    // requestAnimationFrame(() => {
+    //   const { width, height } = canvasEl.getBoundingClientRect();
+    //   canvasEl.width = width;
+    //   canvasEl.height = height;
+    //   if (callback) {
+    //     callback([canvasEl.width, canvasEl.height]);
+    //   }
+    // });
   };
 
-  const handleMouseUp = (ev: MouseEvent) => {
+  const handleMouseUp = () => {
     resizeDragEl.classList.remove("dragging");
     window.removeEventListener("mousemove", handleMouseMove);
     window.removeEventListener("mouseup", handleMouseUp);
+    const { width, height } = canvasEl.getBoundingClientRect();
+    canvasEl.width = width;
+    canvasEl.height = height;
+    if (callback) {
+      callback([canvasEl.width, canvasEl.height]);
+    }
   };
 
   resizeDragEl.addEventListener("mousedown", handleMouseDown);

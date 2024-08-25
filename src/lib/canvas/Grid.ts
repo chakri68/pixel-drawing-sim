@@ -1,6 +1,8 @@
 import { asyncSleep } from "../utils/animations";
 import { Optional } from "../utils/typeUtils";
 
+type RenderTask = () => void;
+
 export type Point = [number, number];
 
 export type LineStrategy = (point1: Point, point2: Point) => Point[];
@@ -23,91 +25,78 @@ export type Cell = {
   color: string;
 };
 
-type optionalOptionKeys = "gap" | "color" | "pixelRadius";
+type OptionalOptionKeys = "gap" | "color" | "pixelRadius";
 
 export class CanvasGrid {
   public ctx: CanvasRenderingContext2D;
   public options: Options;
-  private defaultOptions: Pick<Options, optionalOptionKeys> = {
+  private defaultOptions: Pick<Options, OptionalOptionKeys> = {
     gap: 0,
-    color: "#fff", // default color
+    color: "#fff",
     pixelRadius: 6,
   };
   private cellData: Cell[][] = [];
   private overlayLines: { startCell: Cell["index"]; endCell: Cell["index"] }[] =
     [];
+  private bufferedTasks: Array<RenderTask> = [];
+  private resizeTimeout: number | null = null;
 
   constructor(
     public canvasElement: HTMLCanvasElement,
-    options: Optional<Options, optionalOptionKeys>
+    options: Optional<Options, OptionalOptionKeys>
   ) {
-    this.updateCanvasSize();
     this.ctx = canvasElement.getContext("2d")!;
-    // Merge default options
-    this.options = {
-      ...options,
-      ...Object.fromEntries(
-        Object.entries(this.defaultOptions).filter(
-          // @ts-ignore
-          ([key, value]) => options[key] === undefined
-        )
-      ),
-    } as Options;
+    this.options = { ...this.defaultOptions, ...options };
 
+    this.updateCanvasSize();
     this.updateCellCount();
+    this.refreshGrid();
 
+    window.addEventListener("resize", this.handleResize.bind(this));
+    this.renderHandler();
+  }
+
+  private handleResize() {
+    if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
+    this.resizeTimeout = window.setTimeout(() => {
+      this.updateCanvasSize();
+      this.updateCellCount();
+      this.drawCells();
+    }, 200);
+  }
+
+  public updateCanvasSizeAndRedraw(newSize: [number, number]) {
+    this.canvasElement.width = newSize[0];
+    this.canvasElement.height = newSize[1];
+    this.updateCellCount();
     this.refreshGrid();
   }
 
-  private generateCellData(
-    rows: number,
-    cols: number,
-    oldData: Cell[][] = []
-  ): Cell[][] {
+  private generateCellData(rows: number, cols: number): Cell[][] {
     const { color, gap, cellSize } = this.options;
     const [cellWidth, cellHeight] = cellSize;
 
     const [pX, pY] = this.calculatePadding(rows, cols);
 
-    const cellData: Cell[][] = oldData
-      .map((data) => data.slice(0, cols))
-      .slice(0, rows);
-
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = 1;
 
-    // Draw the grid as cells
-    for (let y = 0; y < rows; y++) {
-      if (!cellData[y]) cellData[y] = [];
-      for (let x = 0; x < cols; x++) {
-        const startX = pX + x * (cellWidth + gap);
-        const startY = pY + y * (cellHeight + gap);
-        if (!cellData[y][x])
-          cellData[y][x] = {
-            index: [x, y],
-            rect: {
-              x: startX,
-              y: startY,
-              width: cellWidth,
-              height: cellHeight,
-            },
-            color: color,
-          };
-        else {
-          cellData[y][x].rect = {
-            x: startX,
-            y: startY,
-            width: cellWidth,
-            height: cellHeight,
-          };
-        }
-      }
-    }
-    return cellData;
+    return Array.from({ length: rows }, (_, y) =>
+      Array.from({ length: cols }, (_, x) => ({
+        index: [x, y],
+        rect: {
+          x: pX + x * (cellWidth + gap),
+          y: pY + y * (cellHeight + gap),
+          width: cellWidth,
+          height: cellHeight,
+        },
+        color: color,
+      }))
+    );
   }
 
   private drawCells() {
-    this.cellData.forEach((row) => {
+    this.cellData.forEach((row) =>
       row.forEach((cell) => {
         this.ctx.fillStyle = cell.color;
         this.drawRoundRect(
@@ -116,8 +105,8 @@ export class CanvasGrid {
           cell.rect.width,
           cell.rect.height
         );
-      });
-    });
+      })
+    );
   }
 
   private drawRoundRect(
@@ -127,9 +116,48 @@ export class CanvasGrid {
     height: number,
     radii: number = this.options.pixelRadius
   ) {
-    this.ctx.beginPath();
-    this.ctx.roundRect(x, y, width, height, radii);
-    this.ctx.fill();
+    this.addRenderTask(() => {
+      this.ctx.beginPath();
+      this.ctx.roundRect(x, y, width, height, radii);
+      this.ctx.fill();
+    });
+  }
+
+  public updateCanvasSize() {
+    const { width, height } = this.canvasElement.getBoundingClientRect();
+    this.canvasElement.width = width;
+    this.canvasElement.height = height;
+  }
+
+  private updateCellCount() {
+    const { gap, cellSize } = this.options;
+    const [cellWidth, cellHeight] = cellSize;
+    const newCols = Math.floor(
+      (this.canvasElement.width + gap) / (cellWidth + gap)
+    );
+    const newRows = Math.floor(
+      (this.canvasElement.height + gap) / (cellHeight + gap)
+    );
+    this.cellData = this.generateCellData(newRows, newCols);
+  }
+
+  private calculatePadding(rows: number, cols: number) {
+    const { gap, cellSize } = this.options;
+    const [cellWidth, cellHeight] = cellSize;
+    const paddingX =
+      (this.canvasElement.width - (cols * cellWidth + (cols - 1) * gap)) / 2;
+    const paddingY =
+      (this.canvasElement.height - (rows * cellHeight + (rows - 1) * gap)) / 2;
+
+    return [paddingX, paddingY];
+  }
+
+  public fillCell(index: [number, number], color: string) {
+    const [x, y] = index;
+    const cell = this.cellData[y][x];
+    cell.color = color;
+    this.ctx.fillStyle = color;
+    this.drawCell(index);
   }
 
   private drawCell(index: [number, number]) {
@@ -144,60 +172,6 @@ export class CanvasGrid {
     );
   }
 
-  private addResizeHandler() {
-    window.addEventListener("resize", () => {
-      this.updateCanvasSize();
-      this.updateCellCount();
-      this.drawCells();
-    });
-  }
-
-  public updateCanvasSize() {
-    const boundingBox = this.canvasElement.getBoundingClientRect();
-    this.canvasElement.width = boundingBox.width;
-    this.canvasElement.height = boundingBox.height;
-  }
-
-  private updateCellCount() {
-    const { gap, cellSize } = this.options;
-
-    const [cellWidth, cellHeight] = cellSize;
-    const newCols = Math.floor(
-      (this.canvasElement.width + gap) / (cellWidth + gap)
-    );
-    const newRows = Math.floor(
-      (this.canvasElement.height + gap) / (cellHeight + gap)
-    );
-    this.cellData = this.generateCellData(newRows, newCols, this.cellData);
-  }
-
-  private calculatePadding(rows: number, cols: number) {
-    const { gap, cellSize } = this.options;
-    const [cellWidth, cellHeight] = cellSize;
-    const paddingX =
-      (this.canvasElement.width - (cols * cellWidth + (cols - 1) * gap)) / 2;
-    const paddingY =
-      (this.canvasElement.height - (rows * cellHeight + (rows - 1) * gap)) / 2;
-
-    return [paddingX, paddingY];
-  }
-
-  public resizeHandler([width, height]: [number, number]) {
-    this.canvasElement.width = width;
-    this.canvasElement.height = height;
-    this.updateCellCount();
-    this.drawCells();
-    this.drawOverlayLines();
-  }
-
-  public fillCell(index: [number, number], color: string) {
-    const [x, y] = index;
-    const cell = this.cellData[y][x];
-    cell.color = color;
-    this.ctx.fillStyle = color;
-    this.drawCell(index);
-  }
-
   public async drawLine(point1: Point, point2: Point, strategy: LineStrategy) {
     this.addOverlayLine(point1, point2);
     const points = strategy(point1, point2);
@@ -209,15 +183,18 @@ export class CanvasGrid {
   }
 
   private drawOverlayLines() {
-    for (const { startCell, endCell } of this.overlayLines) {
-      const sCell = this.cellData[startCell[1]][startCell[0]].rect;
-      const eCell = this.cellData[endCell[1]][endCell[0]].rect;
-      this.ctx.lineWidth = 2;
-      this.ctx.strokeStyle = "#000";
-      this.ctx.moveTo(sCell.x + sCell.width / 2, sCell.y + sCell.height / 2);
-      this.ctx.lineTo(eCell.x + eCell.width / 2, eCell.y + eCell.height / 2);
-      this.ctx.stroke();
-    }
+    this.addRenderTask(() => {
+      for (const { startCell, endCell } of this.overlayLines) {
+        const sCell = this.cellData[startCell[1]][startCell[0]].rect;
+        const eCell = this.cellData[endCell[1]][endCell[0]].rect;
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = "#000";
+        this.ctx.beginPath();
+        this.ctx.moveTo(sCell.x + sCell.width / 2, sCell.y + sCell.height / 2);
+        this.ctx.lineTo(eCell.x + eCell.width / 2, eCell.y + eCell.height / 2);
+        this.ctx.stroke();
+      }
+    });
   }
 
   public addOverlayLine(startIndex: Cell["index"], endIndex: Cell["index"]) {
@@ -226,11 +203,9 @@ export class CanvasGrid {
   }
 
   public clearCells() {
-    for (const row of this.cellData) {
-      for (const col of row) {
-        col.color = "#fff"; // default color
-      }
-    }
+    this.cellData.forEach((row) => {
+      row.forEach((cell) => (cell.color = "#fff"));
+    });
   }
 
   public clearOverlayLines() {
@@ -238,14 +213,26 @@ export class CanvasGrid {
   }
 
   public refreshGrid() {
-    this.ctx.fillStyle = "#fff";
-    this.ctx.fillRect(
-      0,
-      0,
-      this.canvasElement.width,
-      this.canvasElement.height
-    );
+    this.addRenderTask(() => {
+      this.ctx.fillStyle = "#fff";
+      this.ctx.fillRect(
+        0,
+        0,
+        this.canvasElement.width,
+        this.canvasElement.height
+      );
+    });
     this.drawCells();
     this.drawOverlayLines();
+  }
+
+  private addRenderTask(task: RenderTask) {
+    this.bufferedTasks.push(task);
+  }
+
+  private renderHandler() {
+    this.bufferedTasks.forEach((task) => task());
+    this.bufferedTasks = [];
+    window.requestAnimationFrame(this.renderHandler.bind(this));
   }
 }
